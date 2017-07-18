@@ -1,6 +1,8 @@
 function initMap() {
   try {
-    let center = { lat: 32.109333, lng: 34.855499 };
+    //hold references to all drawn shapes
+    var allShapes = [];
+    let center = { lat: 32.109333, lng: 34.855499 }; //israel
     let map = new google.maps.Map(document.getElementById("map"), {
       center: new google.maps.LatLng(center),
       disableDefaultUI: true,
@@ -8,16 +10,60 @@ function initMap() {
       zoom: 11
     });
 
-    //hold references to all drawn shapes
-    var allShapes = [];
+    //set shapes options
+    let polylineOptions = {
+      fillColor: "#1E90FF",
+      strokeColor: "#FF0000",
+      fillOpacity: 1,
+      strokeWeight: 5,
+      clickable: true,
+      editable: true,
+      zIndex: 1
+    };
+
+    let circleOptions = {
+      fillColor: "#1E90FF",
+      strokeColor: "#FF0000",
+      fillOpacity: 0.35,
+      strokeWeight: 5,
+      draggable: true,
+      clickable: false,
+      editable: true,
+      zIndex: 1
+    };
+
+    let polygonOptions = {
+      fillColor: "#1E90FF",
+      strokeColor: "#FF0000",
+      fillOpacity: 0.35,
+      strokeWeight: 5,
+      draggable: true,
+      clickable: false,
+      editable: true,
+      zIndex: 1
+    };
+
+    //include drawing functionallity
+    var drawingManager = new google.maps.drawing.DrawingManager({
+      drawingMode: google.maps.drawing.OverlayType.CURSOR,
+      drawingControl: false, //set false to hide googles default buttons
+      drawingControlOptions: {
+        position: google.maps.ControlPosition.TOP_CENTER,
+        drawingModes: ["circle", "polygon", "polyline"]
+      },
+      polylineOptions: polylineOptions,
+      circleOptions: circleOptions,
+      polygonOptions: polygonOptions
+    });
+
+    //append drawing functionality to our map
+    drawingManager.setMap(map);
 
     //initialize event listeners on drawing buttons
     (function setButtonsAndMapEventHandlers() {
       let drawPolyLineButton = document.getElementById("drawPolyLineButton");
       let drawCircleButton = document.getElementById("drawCircleButton");
       let drawPolyGonButton = document.getElementById("drawPolyGonButton");
-      let drawRectangleButton = document.getElementById("drawRectangleButton");
-      let getCoordinates = document.getElementById("getCoordinates");
       let clearButton = document.getElementById("clearButton");
 
       //get new center center of map after draggin it around
@@ -30,28 +76,16 @@ function initMap() {
         center = map.getCenter();
       });
 
-      getCoordinates.onclick = function(_e) {
-        alert("getCoordinates");
-      };
-
       drawPolyLineButton.onclick = function(_e) {
-        google.maps.event.clearListeners(map, "click");
-        drawPolyline(map, allShapes);
-      };
-
-      drawRectangleButton.onclick = function(_e) {
-        google.maps.event.clearListeners(map, "click");
-        drawRectangle(map, allShapes);
+        drawShape(map, allShapes, drawingManager, "POLYLINE");
       };
 
       drawCircleButton.onclick = function(_e) {
-        google.maps.event.clearListeners(map, "click");
-        drawCircle(map, allShapes);
+        drawShape(map, allShapes, drawingManager, "CIRCLE");
       };
 
       drawPolyGonButton.onclick = function(_e) {
-        google.maps.event.clearListeners(map, "click");
-        drawPolygon(map, allShapes);
+        drawShape(map, allShapes, drawingManager, "POLYGON");
       };
 
       clearButton.onclick = function(_e) {
@@ -65,160 +99,90 @@ function initMap() {
   }
 }
 
-function drawPolygon(_map, _allShapes) {
+function drawShape(_map, _allShapes, _drawingManager, _type) {
   try {
-    let addFirstCoordForPolyHandler = google.maps.event.addListener(
-      _map,
-      "click",
-      addPolygon
-    );
-
-    function addPolygon(_e) {
-      let center = { lat: _e.latLng.lat(), lng: _e.latLng.lng() };
-      let destinations = new google.maps.MVCArray();
-      destinations.push(new google.maps.LatLng(center));
-      //define a polygon
-      let polygon = new google.maps.Polygon({
-        paths: destinations,
-        draggable: true,
-        editable: true,
-        strokeColor: "#FF0000",
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: "#00FF00",
-        fillOpacity: 0.35
-      });
-
-      //keep reference to polygon
-      _allShapes.push(polygon);
-
-      //remove previous 'click' handler before assigning new one
-      google.maps.event.removeListener(addFirstCoordForPolyHandler);
-      google.maps.event.addListener(_map, "click", addCoords);
-      function addCoords(_e) {
-        try {
-          let currentPath = polygon.getPath();
-          currentPath.push(_e.latLng);
-        } catch (error) {
-          console.log("addCoords error: " + error);
-        }
-      }
-
-      //handle polygon user changes: dragging \ resizing \ adding coords
-      google.maps.event.addListener(
-        polygon.getPath(),
-        "insert_at",
-        getPolygonCoords
-      );
-      google.maps.event.addListener(
-        polygon.getPath(),
-        "set_at",
-        getPolygonCoords
-      );
-
-      function getPolygonCoords() {
-        let coords = polygon.getPath().b.map(coord => coord.toUrlValue());
-        console.log(coords);
-      }
-
-      //set polygon on map
-      polygon.setMap(_map);
+    switch (_type) {
+      case "POLYLINE":
+        drawPolyline(_map, _allShapes, _drawingManager);
+        break;
+      case "POLYGON":
+        drawPolygon(_map, _allShapes, _drawingManager);
+        break;
+      case "CIRCLE":
+        drawCircle(_map, _allShapes, _drawingManager);
+        break;
     }
+  } catch (error) {
+    console.log("drawShape error: " + error);
+  }
+}
+
+function drawPolygon(_map, _allShapes, _drawingManager) {
+  try {
+    _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    google.maps.event.addListener(
+      _drawingManager,
+      "polygoncomplete",
+      _polygon => {
+        _allShapes.push(_polygon);
+        getShapeCoords(_polygon);
+        _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+      }
+    );
   } catch (error) {
     consoloe.log("drawPolygon error: " + error);
   }
 }
 
-function drawPolyline(_map, _allShapes) {
+function drawPolyline(_map, _allShapes, _drawingManager) {
   try {
-    //define a polyline
-    let polyline = new google.maps.Polyline({
-      strokeColor: "#FF0000"
-    });
-
-    //keep reference to polyline
-    _allShapes.push(polyline);
-
-    //handle click events on map \ add more polylines
-    google.maps.event.addListener(_map, "click", addCoords);
-    function addCoords(_e) {
-      let currentPath = polyline.getPath();
-      currentPath.push(_e.latLng);
-    }
-
-    //handle polyline user changes: dragging \ resizing \ adding coords
+    _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYLINE);
     google.maps.event.addListener(
-      polyline.getPath(),
-      "insert_at",
-      getPolylineCoords
+      _drawingManager,
+      "polylinecomplete",
+      _polyline => {
+        _allShapes.push(_polyline);
+        getShapeCoords(_polyline);
+        _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+      }
     );
-
-    google.maps.event.addListener(
-      polyline.getPath(),
-      "set_at",
-      getPolylineCoords
-    );
-
-    //calcualte polyline coordinates
-    function getPolylineCoords() {
-      let coords = polyline.getPath().b.map(coord => coord.toUrlValue());
-      console.log(coords);
-    }
-
-    //set polyline on map
-    polyline.setMap(_map);
   } catch (error) {
     console.log("drawPolyline error: " + error);
   }
 }
 
-function drawRectangle(_map, _allShapes) {
+function drawCircle(_map, _allShapes, _drawingManager) {
   try {
+    _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
+    google.maps.event.addListener(
+      _drawingManager,
+      "circlecomplete",
+      _circle => {
+        _allShapes.push(_circle);
+        getCircleRadandCenter(_circle);
+        _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+      }
+    );
   } catch (error) {
-    console.log("drawRectangle error: " + error);
+    console.log("drawCircle error: " + error);
   }
 }
 
-function drawCircle(_map, _allShapes) {
+function getCircleRadandCenter(_circle) {
   try {
-    google.maps.event.addListener(_map, "click", addCircle);
-
-    function addCircle(_e) {
-      let circle = new google.maps.Circle({
-        center: _e.latLng,
-        radius: _map.getZoom() * 500,
-        strokeColor: "#FF0000",
-        fillColor: "#00FF00",
-        draggable: true,
-        editable: true,
-        map: _map
-      });
-
-      //keep reference to circle
-      _allShapes.push(circle);
-
-      google.maps.event.addListener(circle, "radius_changed", () => getCircleCoords(circle)); //update coordinates after resizing the circle
-      google.maps.event.addListener(circle, "dragend", () => getCircleCoords(circle)); //update coordinates after dragging the circle
-
-      getCircleCoords(circle) //update coordinates for the first time (when the circle just drawn)
-      circle.setMap(_map);
-    }
-    //calculate circles coordinates
-    function getCircleCoords(_circle) {
-      try {
-        var destinations = [];
-        var points = 512;
-
-        for(let i = 0; i < points; i++) {
-          destinations.push(google.maps.geometry.spherical.computeOffset(_circle.getCenter(), _circle.getRadius(), i * 360 / points));
-        }
-        destinations = destinations.map(destination => destination.toUrlValue());
-        console.log(destinations);          
-      } catch (error) {
-        console.log('getCircleCoords error: ' + error);          
-      }
-    }    
+    let center = _circle.getCenter();
+    let radius = _circle.getRadius();
+    console.log("Circle center: " + center, "Radius: " + radius);
   } catch (error) {
-    console.log("drawCircle error: " + error);
+    console.log("getCircleRadandCenter error: " + error);
+  }
+}
+
+function getShapeCoords(_shape) {
+  try {
+    let coords = _shape.getPath().b.map(coord => coord.toUrlValue());
+    console.log(coords);
+  } catch (error) {
+    console.log("getShapeCoords error: " + error);
   }
 }

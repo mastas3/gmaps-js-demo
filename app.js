@@ -159,6 +159,7 @@ function drawPolyline(_map, _allShapes) {
       getPolylineCoords
     );
 
+    //calcualte polyline coordinates
     function getPolylineCoords() {
       let coords = polyline.getPath().b.map(coord => coord.toUrlValue());
       console.log(coords);
@@ -196,26 +197,27 @@ function drawCircle(_map, _allShapes) {
       //keep reference to circle
       _allShapes.push(circle);
 
-      google.maps.event.addListener(circle, "idle", getCircleCoords);
+      google.maps.event.addListener(circle, "radius_changed", () => getCircleCoords(circle)); //update coordinates after resizing the circle
+      google.maps.event.addListener(circle, "dragend", () => getCircleCoords(circle)); //update coordinates after dragging the circle
 
-      //calculate circles coordinates
-      function getCircleCoords() {
-        try {
-          var destinations = [];
-          var points = 512;
-
-          for(let i = 0; i < points; i++) {
-            destinations.push(google.maps.geometry.spherical.computeOffset(circle.getCenter(), circle.getRadius(), i * 360 / points));
-          }
-          destinations = destinations.map(destination => destination.toUrlValue());
-          console.log(destinations);          
-        } catch (error) {
-          console.log('getCircleCoords error: ' + error);          
-        }
-      }
-
+      getCircleCoords(circle) //update coordinates for the first time (when the circle just drawn)
       circle.setMap(_map);
     }
+    //calculate circles coordinates
+    function getCircleCoords(_circle) {
+      try {
+        var destinations = [];
+        var points = 512;
+
+        for(let i = 0; i < points; i++) {
+          destinations.push(google.maps.geometry.spherical.computeOffset(_circle.getCenter(), _circle.getRadius(), i * 360 / points));
+        }
+        destinations = destinations.map(destination => destination.toUrlValue());
+        console.log(destinations);          
+      } catch (error) {
+        console.log('getCircleCoords error: ' + error);          
+      }
+    }    
   } catch (error) {
     console.log("drawCircle error: " + error);
   }

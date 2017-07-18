@@ -5,6 +5,7 @@
     <style>
       body {
         font-family: 'Baloo', cursive;
+        text-align: center;
       }
 
       #map {
@@ -12,11 +13,22 @@
         height: 400px;
         background-color: grey;
       }
+
+      #latlngInfo {
+        width:200px;
+        height: 200px;
+        color: black;
+      }
     </style>
   </head>
   <body>
     <h3>Map</h3>
     <div id="map"></div>
+    <button id='drawPolyLineButton'>Draw A Polyline</button>
+    <button id='drawCircleButton'>Draw A Circle</button>
+    <button id='drawPolyGonButton'>Draw A Polygon</button>
+    <button id='clearButton'>Clear</button>
+    <div id="latlngInfo"></div>
 
   <script src="app.js"></script>
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDqeNj5Frekzzt6_GWoi5FpH6YzD637LZY&libraries=drawing&callback=initMap"></script>

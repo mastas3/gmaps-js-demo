@@ -1,7 +1,7 @@
 function initMap() {
   try {
     //hold references to all drawn shapes
-    var shapesHistory = [];
+    var shapesHistoryArr = [];
     var draw = new DrawPolyShape();
     var center = { lat: 32.109333, lng: 34.855499 }; //israel
     var map = new google.maps.Map(document.getElementById("map"), {
@@ -62,114 +62,112 @@ function initMap() {
     //initialize event listeners on drawing buttons
     (function setButtonsAndMapEventHandlers() {
       try {
-        draw.init(shapesHistory, drawingManager)
+        draw.init(shapesHistoryArr, drawingManager);
         var drawPolyLineButton = document.getElementById("drawPolyLineButton");
         var drawCircleButton = document.getElementById("drawCircleButton");
         var drawPolyGonButton = document.getElementById("drawPolyGonButton");
         var clearButton = document.getElementById("clearButton");
 
         drawPolyLineButton.onclick = function(_e) {
-          draw.polyline(shapesHistory, drawingManager);
+          draw.polyline(shapesHistoryArr, drawingManager);
         };
 
         drawCircleButton.onclick = function(_e) {
-          draw.circle(shapesHistory, drawingManager);
+          draw.circle(shapesHistoryArr, drawingManager);
         };
 
         drawPolyGonButton.onclick = function(_e) {
-          draw.polygon(shapesHistory, drawingManager);
+          draw.polygon(shapesHistoryArr, drawingManager);
         };
 
         clearButton.onclick = function(_e) {
-          while (allShapes.length > 0) {
-            allShapes.pop().setMap(null);
+          while (shapesHistoryArr.length > 0) {
+            shapesHistoryArr.pop().setMap(null);
           }
         };
-      } catch (error) {
-        console.log('setButtonsAndMapEventHandlers error: ', error)
+      } catch (_error) {
+        console.log("setButtonsAndMapEventHandlers error: ", _error);
       }
     })();
-  } catch (error) {
-    console.log("initMap error: ", error);
+  } catch (_error) {
+    console.log("initMap error: ", _error);
   }
 }
 
-function drawShape(_allShapes, _drawingManager, _type) {
-  try {
-    switch (_type) {
-      case "POLYLINE":
-        drawPolyline(_allShapes, _drawingManager);
-        break;
-      case "POLYGON":
-        drawPolygon(_allShapes, _drawingManager);
-        break;
-      case "CIRCLE":
-        drawCircle(_allShapes, _drawingManager);
-        break;
-    }
-  } catch (error) {
-    console.log("drawShape error: ", error);
-  }
-}
-
+//drawing class
 function DrawPolyShape() {
-  this.init = function(_shapesHistory, _drawingManager) {
-    this.shapesHistory = _shapesHistory;
+  this.init = function(_shapesHistoryArr, _drawingManager) {
+    this.shapesHistoryArr = _shapesHistoryArr;
     this.drawingManager = _drawingManager;
-  }
+  };
 
   this.polygon = function() {
     try {
       this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
-      google.maps.event.addListener("polygoncomplete", _polygon => {
-          try {
-            this.shapesHistory.push(_polygon);
-            this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-            getShapeCoords(_polygon);
-          } catch (error) {
-            console.log('polygoncomplete handler error ', error)        
-          }
+      google.maps.event.addListener(this.drawingManager, "polygoncomplete", _polygon => {
+        try {
+          this.shapesHistoryArr.push(_polygon);
+          this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+          //handle polyline movement
+          google.maps.event.addListener(_polygon.getPath(), "set_at", () => getShapeCoords(_polygon));
+          google.maps.event.addListener(_polygon.getPath(), "insert_at", () => getShapeCoords(_polygon));
+
+          //get coordinates data
+          getShapeCoords(_polygon);
+        } catch (_error) {
+          console.log("polygoncomplete handler error ", _error);
         }
-      );      
-    } catch (error) {
-      console.log('DrawPolyShape.polygon error', error);
+      });
+    } catch (_error) {
+      console.log("DrawPolyShape.polygon error", _error);
     }
-  }
+  };
 
   this.polyline = function() {
     try {
       this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYLINE);
-      google.maps.event.addListener(_drawingManager, "polylinecomplete", _polyline => {
-          try {
-            this.shapesHistory.push(_polyline);
-            this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-            getShapeCoords(_polyline);            
-          } catch (error) {
-            console.log('polylinecomplete handler error ', error)        
-          }
+      google.maps.event.addListener(this.drawingManager, "polylinecomplete", _polyline => {
+        try {
+          this.shapesHistoryArr.push(_polyline);
+          this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+
+          //handle polyline movement
+          google.maps.event.addListener(_polyline.getPath(), "set_at", () => getShapeCoords(_polyline));
+          google.maps.event.addListener(_polyline.getPath(), "insert_at", () => getShapeCoords(_polyline));
+
+          //get coordinates data
+          getShapeCoords(_polyline);
+        } catch (_polyline) {
+          console.log("polylinecomplete handler error ", _error);
         }
-      );      
-    } catch (error) {
-      console.log('DrawPolyShape.polyline error', error);
+      });
+    } catch (_error) {
+      console.log("DrawPolyShape.polyline error", _error);
     }
-  }
+  };
 
   this.circle = function() {
     try {
       this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
-      google.maps.event.addListener(
-        _drawingManager,
-        "circlecomplete",
-        _circle => {
-          this.shapesHistory.push(_circle);
+      //handle "circle complete" event
+      google.maps.event.addListener(this.drawingManager, "circlecomplete", _circle => {
+        try {
+          this.shapesHistoryArr.push(_circle);
           this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
           getCircleRadandCenter(_circle);
+
+          //handle "radius changed" event (when you resize the circle)
+          google.maps.event.addListener(_circle, "radius_changed", () => getCircleRadandCenter(_circle));
+          //handle "center changed" event (when you move the circle)
+          google.maps.event.addListener(_circle, "center_changed", () => getCircleRadandCenter(_circle));
+        } catch (_error) {
+          console.log("circlecomplete handler error", _error);
         }
-      );      
-    } catch (error) {
-      console.log('DrawPolyShape.circle error', error)
+      });
+    } catch (_error) {
+      console.log("DrawPolyShape.circle error", _error);
     }
-  }  
+  };
 }
 
 function getCircleRadandCenter(_circle) {
@@ -177,8 +175,8 @@ function getCircleRadandCenter(_circle) {
     var center = _circle.getCenter();
     var radius = _circle.getRadius();
     console.log("Circle center: " + center, "Radius: " + radius);
-  } catch (error) {
-    console.log("getCircleRadandCenter error: ", error);
+  } catch (_error) {
+    console.log("getCircleRadandCenter error: ", _error);
   }
 }
 
@@ -186,61 +184,7 @@ function getShapeCoords(_shape) {
   try {
     var coords = _shape.getPath().b.map(coord => coord.toUrlValue()); //change b
     console.log(coords);
-  } catch (error) {
-    console.log("getShapeCoords error: ", error);
+  } catch (_error) {
+    console.log("getShapeCoords error: ", _error);
   }
 }
-
-// function drawPolygon(_allShapes, _drawingManager) {
-//   try {
-//     _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
-//     google.maps.event.addListener(_drawingManager, "polygoncomplete", _polygon => {
-//       try {
-//         _allShapes.push(_polygon);
-//         getShapeCoords(_polygon);
-//         _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-//       } catch (error) {
-//         console.log('polygoncomplete handler error ', error)        
-//       }
-//       }
-//     );
-//   } catch (error) {
-//     consoloe.log("drawPolygon error: ", error);
-//   }
-// }
-
-// function drawPolyline(_allShapes, _drawingManager) {
-//   try {
-//     _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYLINE);
-//     google.maps.event.addListener(
-//       _drawingManager,
-//       "polylinecomplete",
-//       _polyline => {
-//         _allShapes.push(_polyline);
-//         getShapeCoords(_polyline);
-//         _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-//       }
-//     );
-//   } catch (error) {
-//     console.log("drawPolyline error: ", error);
-//   }
-// }
-
-// function drawCircle(_allShapes, _drawingManager) {
-//   try {
-//     _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
-//     google.maps.event.addListener(
-//       _drawingManager,
-//       "circlecomplete",
-//       _circle => {
-//         _allShapes.push(_circle);
-//         getCircleRadandCenter(_circle);
-//         _drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-//       }
-//     );
-//   } catch (error) {
-//     console.log("drawCircle error: ", error);
-//   }
-// }
-
-

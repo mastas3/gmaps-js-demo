@@ -69,15 +69,15 @@ function initMap() {
         var clearButton = document.getElementById("clearButton");
 
         drawPolyLineButton.onclick = function(_e) {
-          draw.polyline(shapesHistoryArr, drawingManager);
+          draw.polyline(_e);
         };
 
         drawCircleButton.onclick = function(_e) {
-          draw.circle(shapesHistoryArr, drawingManager);
+          draw.circle(_e);
         };
 
         drawPolyGonButton.onclick = function(_e) {
-          draw.polygon(shapesHistoryArr, drawingManager);
+          draw.polygon(_e);
         };
 
         clearButton.onclick = function(_e) {
@@ -99,25 +99,14 @@ function DrawPolyShape() {
   this.init = function(_shapesHistoryArr, _drawingManager) {
     this.shapesHistoryArr = _shapesHistoryArr;
     this.drawingManager = _drawingManager;
+    circleCompleteEventListener();
+    polylineCompleteEventListener();
+    polygonCompleteEventListener();
   };
 
   this.polygon = function() {
     try {
       this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
-      google.maps.event.addListener(this.drawingManager, "polygoncomplete", _polygon => {
-        try {
-          this.shapesHistoryArr.push(_polygon);
-          this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-          //handle polyline movement
-          google.maps.event.addListener(_polygon.getPath(), "set_at", () => getShapeCoords(_polygon));
-          google.maps.event.addListener(_polygon.getPath(), "insert_at", () => getShapeCoords(_polygon));
-
-          //get coordinates data
-          getShapeCoords(_polygon);
-        } catch (_error) {
-          console.log("polygoncomplete handler error ", _error);
-        }
-      });
     } catch (_error) {
       console.log("DrawPolyShape.polygon error", _error);
     }
@@ -126,6 +115,42 @@ function DrawPolyShape() {
   this.polyline = function() {
     try {
       this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYLINE);
+    } catch (_error) {
+      console.log("DrawPolyShape.polyline error", _error);
+    }
+  };
+
+  this.circle = function() {
+    try {
+      this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
+    } catch (_error) {
+      console.log("DrawPolyShape.circle error", _error);
+    }
+  };
+
+  var circleCompleteEventListener = () => {
+    try {
+      google.maps.event.addListener(this.drawingManager, "circlecomplete", _circle => {
+        try {
+          this.shapesHistoryArr.push(_circle);
+          this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
+          getCircleRadandCenter(_circle);
+
+          //handle "radius changed" event (when you resize the circle)
+          google.maps.event.addListener(_circle, "radius_changed", () => getCircleRadandCenter(_circle));
+          //handle "center changed" event (when you move the circle)
+          google.maps.event.addListener(_circle, "center_changed", () => getCircleRadandCenter(_circle));
+        } catch (_error) {
+          console.log("circlecomplete handler error", _error);
+        }
+      });
+    } catch (_error) {
+      console.log("DrawPolyShape circleCompleteEventListener error: ", _error);
+    }
+  }
+
+  var polylineCompleteEventListener = () => {
+    try {
       google.maps.event.addListener(this.drawingManager, "polylinecomplete", _polyline => {
         try {
           this.shapesHistoryArr.push(_polyline);
@@ -142,32 +167,30 @@ function DrawPolyShape() {
         }
       });
     } catch (_error) {
-      console.log("DrawPolyShape.polyline error", _error);
+      console.log("DrawPolyShape circleCompleteEventListener error: ", _error);
     }
-  };
+  }
 
-  this.circle = function() {
+  var polygonCompleteEventListener = () => {
     try {
-      this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
-      //handle "circle complete" event
-      google.maps.event.addListener(this.drawingManager, "circlecomplete", _circle => {
+      google.maps.event.addListener(this.drawingManager, "polygoncomplete", _polygon => {
         try {
-          this.shapesHistoryArr.push(_circle);
+          this.shapesHistoryArr.push(_polygon);
           this.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CURSOR);
-          getCircleRadandCenter(_circle);
+          //handle polyline movement
+          google.maps.event.addListener(_polygon.getPath(), "set_at", () => getShapeCoords(_polygon));
+          google.maps.event.addListener(_polygon.getPath(), "insert_at", () => getShapeCoords(_polygon));
 
-          //handle "radius changed" event (when you resize the circle)
-          google.maps.event.addListener(_circle, "radius_changed", () => getCircleRadandCenter(_circle));
-          //handle "center changed" event (when you move the circle)
-          google.maps.event.addListener(_circle, "center_changed", () => getCircleRadandCenter(_circle));
+          //get coordinates data
+          getShapeCoords(_polygon);
         } catch (_error) {
-          console.log("circlecomplete handler error", _error);
+          console.log("polygoncomplete handler error ", _error);
         }
       });
     } catch (_error) {
-      console.log("DrawPolyShape.circle error", _error);
+      console.log("DrawPolyShape circleCompleteEventListener error: ", _error);
     }
-  };
+  }
 }
 
 function getCircleRadandCenter(_circle) {
@@ -182,7 +205,7 @@ function getCircleRadandCenter(_circle) {
 
 function getShapeCoords(_shape) {
   try {
-    var coords = _shape.getPath().b.map(coord => coord.toUrlValue()); //change b
+    var coords = _shape.getPath().getArray().toString();
     console.log(coords);
   } catch (_error) {
     console.log("getShapeCoords error: ", _error);
